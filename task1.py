@@ -15,6 +15,7 @@ USELESS_COLS = ['id', 'lattitude', 'longtitude', 'address', 'date'];
 CLASSIFICATION_COLS = ['price_bands', 'council_area', 'region_name', 'suburb', 'realestate_agent', 'type', 'method'];
 OUTPUT_COL = 'price_bands'
 
+#Converts all string classes to integer values
 def encodeClassifiers(data, cols):
 	for col in cols:
 		le = preprocessing.LabelEncoder()
@@ -23,9 +24,8 @@ def encodeClassifiers(data, cols):
 
 	return data;
 
+#Cleans up NaN values in dataset
 def cleanDataset(data):
-	
-	
 	for col in list(data):
 		im = preprocessing.Imputer(strategy='median')
 		im.fit(data[[col]]);
@@ -33,36 +33,32 @@ def cleanDataset(data):
 
 	return data;
 
-
 def main(args):
+	#Load data table
 	data = pd.read_table('data/property_prices.csv', delimiter=',');
 
+	#Remove useless columns
 	data = data.drop(USELESS_COLS, axis=1)
+	#Remove rows where target is not known (they aren't very helpful for learning)
 	data = data.loc[data[OUTPUT_COL] != 'Unknown'];
 
+	#cleanup dataset for processing
 	data = encodeClassifiers(data, CLASSIFICATION_COLS);
 	data = cleanDataset(data);
 
+	#Split data into features/target
 	dataAttr = data.drop([OUTPUT_COL], axis=1);
 	dataOut = data[[OUTPUT_COL]];
 
-	le = preprocessing.LabelEncoder();
-	le.fit(dataOut);
-	dataOut = le.transform(dataOut);
-
+	#Split training and testing sets
 	trainFeats, testFeats, trainOutputs, testOutputs = \
     	train_test_split(dataAttr, dataOut, test_size=0.2);
 
-	# print(data);
-	# print(dataOut);
-
+   	#Create model using decision tree
 	clf = tree.DecisionTreeClassifier(criterion='entropy');
 	clf = clf.fit(trainFeats, trainOutputs);
+	#Perform K-Fold cross validation and get accuracy score
 	m = cross_val_score(clf, dataAttr, dataOut, cv=5, scoring='accuracy')
 	print("K-Foldcross validated score: %f" %np.mean(abs(m)));
-	
-	
-	# print(len(data));
-	pass;
 
 main(None);
