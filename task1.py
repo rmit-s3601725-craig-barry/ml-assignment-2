@@ -34,7 +34,7 @@ def encodeClassifiers(data, cols):
 #Cleans up NaN values in dataset
 def cleanDataset(data):
 	for col in list(data):
-		im = preprocessing.Imputer(strategy='mean')
+		im = preprocessing.Imputer(strategy='median')
 		im.fit(data[[col]]);
 		data[[col]] = im.transform(data[[col]]);
 
@@ -140,6 +140,8 @@ def main(args):
 		baggings.append(bagging);
 		etcs.append(etc);
 
+		print("PREDICTING CLASSIFIER %d" %(len(clfs)));
+
 		#Perform K-Fold cross validation and get accuracy score
 		m = cross_val_score(clf, dataAttr, dataOut, cv=5, scoring='accuracy')
 		print("Decision Tree Classifier validated score: %f" %np.mean(abs(m)));
@@ -156,7 +158,7 @@ def main(args):
 		m = cross_val_score(etc, dataAttr, dataOut, cv=5, scoring='accuracy')
 		print("Extra Trees Classifier validated score: %f" %np.mean(abs(m)));
 
-	print("--- FINAL ---");
+	print("--- FINAL -> Predicting all classifiers ---");
 	print("Decision Tree Classifier: %f" %get_accuracy(clfs, dataAttr, dataOutput));
 	print("AdaBoost Classifier: %f" %get_accuracy(adas, dataAttr, dataOutput));
 	print("Random Forest Classifier: %f" %get_accuracy(rfs, dataAttr, dataOutput));
