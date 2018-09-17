@@ -1,6 +1,7 @@
 import pandas as pd;
 import numpy as np;
 import sklearn as sk;
+import operator;
 
 from sklearn import tree
 from sklearn import ensemble
@@ -10,6 +11,9 @@ from sklearn import model_selection
 from sklearn import cluster
 from sklearn.feature_selection import SelectKBest, f_classif, chi2
 from sklearn.model_selection import train_test_split, cross_val_score;
+from sklearn.ensemble import BaggingClassifier
+from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.neighbors import KNeighborsClassifier
 
 import graphviz
 
@@ -54,47 +58,140 @@ def select_features(feats, output):
 
   return feats;
 
-def main(args):
-	#Load data table
-	data = pd.read_table('data/property_prices.csv', delimiter=',');
+def get_accuracy(classifiers, feats, targets):
+	probs = [];
+	for clf in classifiers:
+		probs.append(clf.predict_proba(feats)[:,1]);
 
+	predictedOutputs = [];
+	for i in range(len(probs[0])):
+		probabilities = [probs[x][i] for x in range(len(probs))];
+		max_idx, max_val = max(enumerate(probabilities), key=operator.itemgetter(1))
+		predictedOutputs.append(max_idx + 1);
+
+	accuracy = metrics.accuracy_score(targets, predictedOutputs);
+	return accuracy;
+
+def split_by_targets(nOutputs, splits = 2):
+	data = [];
+	for i in range(nOutputs):
+		data.append(pd.read_table('data/property_prices.csv', delimiter=','));
+		data[i] = data[i].loc[data[i][OUTPUT_COL] != 'Unknown'];
+		# print(data[i]);
+		data[i] = encodeClassifiers(data[i], [OUTPUT_COL]);
+		# print(data[i]);
+		replaceVals = [x for x in range(1,nOutputs+2) if x != (i+1)];
+		# print(replaceVals);
+		data[i][[OUTPUT_COL]] = data[i][[OUTPUT_COL]].replace(replaceVals, 0);
+		data[i][[OUTPUT_COL]] = data[i][[OUTPUT_COL]].replace([(i+1)], 1);
+
+	return data;
+
+
+def main(args):
+	clfs = [];
+	adas = [];
+	rfs = [];
+	baggings = [];
+	etcs = [];
+	nOutputs = 6;
+
+	datas = split_by_targets(nOutputs);
+
+	#Get the first dataset
+	data = pd.read_table('data/property_prices.csv', delimiter=',');
+	data = data.loc[data[OUTPUT_COL] != 'Unknown'];
 	#Remove useless columns
 	data = data.drop(USELESS_COLS, axis=1)
-	#Remove rows where target is not known (they aren't very helpful for learning)
-	data = data.loc[data[OUTPUT_COL] != 'Unknown'];
-
 	#cleanup dataset for processing
 	data = encodeClassifiers(data, CLASSIFICATION_COLS);
 	data = cleanDataset(data);
-
 	#Split data into features/target
 	dataAttr = data.drop([OUTPUT_COL], axis=1);
-	dataOut = data[[OUTPUT_COL]];
-
-	dataAttr = select_features(dataAttr, dataOut);
-
+	dataOutput = data[[OUTPUT_COL]];
+	dataAttr = select_features(dataAttr, dataOutput);
 	#Split training and testing sets
-	trainFeats, testFeats, trainOutputs, testOutputs = \
-    	train_test_split(dataAttr, dataOut, test_size=0.2);
+	# trainFeats, testFeats, trainOutputs, testOutputs = \
+ #    	train_test_split(dataAttr, dataOut, test_size=0.2);
 
-   	#Create model using decision tree
-	clf = tree.DecisionTreeClassifier(criterion='entropy');
-	clf = clf.fit(trainFeats, trainOutputs);
+	for data in datas:
+		#Get the data column where only 1 classifier is present
+		dataOut = data[[OUTPUT_COL]];
 
-	ada = ensemble.AdaBoostClassifier();
-	ada = ada.fit(trainFeats, trainOutputs);
+	   	#Create model using decision tree
+		clf = tree.DecisionTreeClassifier(criterion='entropy');
+		clf = clf.fit(dataAttr, dataOut);
 
-	rf = ensemble.RandomForestClassifier(criterion='entropy');
-	rf = rf.fit(trainFeats, trainOutputs);
+		ada = ensemble.AdaBoostClassifier();
+		ada = ada.fit(dataAttr, dataOut);
 
-	#Perform K-Fold cross validation and get accuracy score
-	m = cross_val_score(clf, dataAttr, dataOut, cv=5, scoring='accuracy')
-	print("K-Foldcross validated score: %f" %np.mean(abs(m)));
+		rf = ensemble.RandomForestClassifier(criterion='entropy');
+		rf = rf.fit(dataAttr, dataOut);
 
-	m = cross_val_score(ada, dataAttr, dataOut, cv=5, scoring='accuracy')
-	print("K-Foldcross validated score: %f" %np.mean(abs(m)));
+		bagging = BaggingClassifier(KNeighborsClassifier(),max_samples=1.0, max_features=0.9);
+		bagging = bagging.fit(dataAttr, dataOut);
 
-	m = cross_val_score(rf, dataAttr, dataOut, cv=5, scoring='accuracy')
-	print("K-Foldcross validated score: %f" %np.mean(abs(m)));
+		etc = ExtraTreesClassifier(n_estimators=10, min_samples_split=2);
+		etc = etc.fit(dataAttr, dataOut);
+
+		clfs.append(clf);
+		adas.append(ada);
+		rfs.append(rf);
+		baggings.append(bagging);
+		etcs.append(etc);
+
+		#Perform K-Fold cross validation and get accuracy score
+		m = cross_val_score(clf, dataAttr, dataOut, cv=5, scoring='accuracy')
+		print("Decision Tree Classifier validated score: %f" %np.mean(abs(m)));
+
+		m = cross_val_score(ada, dataAttr, dataOut, cv=5, scoring='accuracy')
+		print("AdaBoost Classifier validated score: %f" %np.mean(abs(m)));
+
+		m = cross_val_score(rf, dataAttr, dataOut, cv=5, scoring='accuracy')
+		print("Random Forest Classifier validated score: %f" %np.mean(abs(m)));
+
+		m = cross_val_score(bagging, dataAttr, dataOut, cv=5, scoring='accuracy')
+		print("Bagging Classifier validated score: %f" %np.mean(abs(m)));
+
+		m = cross_val_score(etc, dataAttr, dataOut, cv=5, scoring='accuracy')
+		print("Extra Trees Classifier validated score: %f" %np.mean(abs(m)));
+
+	print("--- FINAL ---");
+	print("Decision Tree Classifier: %f" %get_accuracy(clfs, dataAttr, dataOutput));
+	print("AdaBoost Classifier: %f" %get_accuracy(adas, dataAttr, dataOutput));
+	print("Random Forest Classifier: %f" %get_accuracy(rfs, dataAttr, dataOutput));
+	print("Bagging Tree Classifier: %f" %get_accuracy(baggings, dataAttr, dataOutput));
+	print("Extra Trees Classifier: %f" %get_accuracy(etcs, dataAttr, dataOutput));
+
+
+
+
+
+
+
+
+	# maxScore = 0;
+	# maxDX = 0;
+	# maxDY = 0;
+	# for x in range(11):
+	# 	for y in range(11):
+	# 		dx = x * 0.1;
+	# 		dy = y * 0.1;
+
+	# 		try:
+	# 			etc = ExtraTreesClassifier(n_estimators=10, min_samples_split=2);
+	# 			etc = etc.fit(trainFeats, trainOutputs);
+
+	# 			m = np.mean(abs(cross_val_score(etc, dataAttr, dataOut, cv=5, scoring='accuracy')));
+	# 			print("(%f,%f) score: %f" %(dx, dy, m));
+
+	# 			if(m > maxScore):
+	# 				maxDX = dx;
+	# 				maxDY = dy;
+	# 				maxScore = m;
+	# 		except:
+	# 			pass;
+
+	# print("Final: (%f, %f), score: %f" %(maxDX, maxDY, maxScore));
 
 main(None);
