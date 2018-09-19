@@ -33,17 +33,21 @@ def encodeClassifiers(data, cols):
 
 #Cleans up NaN values in dataset
 def cleanDataset(data):
-	for col in list(data):
-		im = preprocessing.Imputer(strategy='median')
-		im.fit(data[[col]]);
-		data[[col]] = im.transform(data[[col]]);
+	for i in range(0,7):
+		# datasub = data.loc[data[OUTPUT_COL] == i];
+		for col in list(data):
+			im = preprocessing.Imputer(strategy='median')
+			im.fit(data.loc[data[OUTPUT_COL] == i, [col]]);
+			data.loc[data[OUTPUT_COL] == i, [col]] = im.transform(data.loc[data[OUTPUT_COL] == i, [col]]);
+
+		# data.loc[data[OUTPUT_COL] == i] = datasub;
 
 	return data;
 
 #Selects features based on the kbest selector score
 def select_features(feats, output):
 
-  selector = SelectKBest(chi2, k=5)
+  selector = SelectKBest(f_classif, k=5)
   selector.fit(feats, output);
   mask = selector.get_support(indices=True)
   new_features = []
@@ -77,9 +81,9 @@ def split_by_targets(nOutputs, splits = 2):
 	for i in range(nOutputs):
 		data.append(pd.read_table('data/property_prices.csv', delimiter=','));
 		data[i] = data[i].loc[data[i][OUTPUT_COL] != 'Unknown'];
-		# print(data[i]);
-		data[i] = encodeClassifiers(data[i], [OUTPUT_COL]);
-		# print(data[i]);
+		data[i] = data[i].drop(USELESS_COLS, axis=1)
+		data[i] = encodeClassifiers(data[i], CLASSIFICATION_COLS);
+		data[i] = cleanDataset(data[i]);
 		replaceVals = [x for x in range(1,nOutputs+2) if x != (i+1)];
 		# print(replaceVals);
 		data[i][[OUTPUT_COL]] = data[i][[OUTPUT_COL]].replace(replaceVals, 0);
@@ -105,7 +109,12 @@ def main(args):
 	data = data.drop(USELESS_COLS, axis=1)
 	#cleanup dataset for processing
 	data = encodeClassifiers(data, CLASSIFICATION_COLS);
+	# print data;
+	# data = data.dropna();
+	print(data);
 	data = cleanDataset(data);
+	print(data);
+	# print data;
 	#Split data into features/target
 	dataAttr = data.drop([OUTPUT_COL], axis=1);
 	dataOutput = data[[OUTPUT_COL]];
@@ -119,7 +128,7 @@ def main(args):
 		dataOut = data[[OUTPUT_COL]];
 
 	   	#Create model using decision tree
-		clf = tree.DecisionTreeClassifier(criterion='entropy');
+		clf = tree.DecisionTreeClassifier(criterion='entropy', max_depth=50);
 		clf = clf.fit(dataAttr, dataOut);
 
 		ada = ensemble.AdaBoostClassifier();
