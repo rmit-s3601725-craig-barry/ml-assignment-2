@@ -9,13 +9,13 @@ from sklearn import preprocessing
 from sklearn import metrics
 from sklearn import model_selection
 from sklearn import cluster
+from sklearn import svm
+from sklearn import multiclass
 from sklearn.feature_selection import SelectKBest, f_classif, chi2
 from sklearn.model_selection import train_test_split, cross_val_score;
 from sklearn.ensemble import BaggingClassifier
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.neighbors import KNeighborsClassifier
-
-import graphviz
 
 DATA_FILE = 'data/property_prices.csv'
 USELESS_COLS = ['id', 'lattitude', 'longtitude', 'address', 'date'];
@@ -34,7 +34,7 @@ def encodeClassifiers(data, cols):
 #Cleans up NaN values in dataset
 def cleanDataset(data):
 	for col in list(data):
-		im = preprocessing.Imputer(strategy='median')
+		im = preprocessing.Imputer(strategy='mean')
 		im.fit(data[[col]]);
 		data[[col]] = im.transform(data[[col]]);
 
@@ -43,20 +43,20 @@ def cleanDataset(data):
 #Selects features based on the kbest selector score
 def select_features(feats, output):
 
-  selector = SelectKBest(chi2, k=5)
-  selector.fit(feats, output);
-  mask = selector.get_support(indices=True)
-  new_features = []
-  feature_names = list(feats.columns.values)
+	selector = SelectKBest(chi2, k=5)
+	selector.fit(feats, output);
+	mask = selector.get_support(indices=True)
+	new_features = []
+	feature_names = list(feats.columns.values)
 
-  for bool, feature in zip(mask, feature_names):
-      if bool:
-          new_features.append(feature)
+	for bool, feature in zip(mask, feature_names):
+		if bool:
+			new_features.append(feature)
 
-  features_to_remove = list(set(feature_names) - set(new_features));
-  feats = feats.drop(features_to_remove, axis=1);
+	features_to_remove = list(set(feature_names) - set(new_features));
+	feats = feats.drop(features_to_remove, axis=1);
 
-  return feats;
+	return feats;
 
 def get_accuracy(classifiers, feats, targets):
 	probs = [];
@@ -94,6 +94,7 @@ def main(args):
 	rfs = [];
 	baggings = [];
 	etcs = [];
+	maxTrees = [];
 	nOutputs = 6;
 
 	datas = split_by_targets(nOutputs);
@@ -114,9 +115,35 @@ def main(args):
 	# trainFeats, testFeats, trainOutputs, testOutputs = \
  #    	train_test_split(dataAttr, dataOut, test_size=0.2);
 
+	clf = multiclass.OneVsRestClassifier(tree.DecisionTreeClassifier(criterion='entropy'), n_jobs=-1);
+	clf = clf.fit(dataAttr, dataOutput);
+	m = cross_val_score(clf, dataAttr, dataOutput, cv=5, scoring='accuracy');
+	print("One Vs Rest Decision Tree Classifier validated score: %f" %np.mean(abs(m)));
+
+	clf = multiclass.OneVsRestClassifier(ensemble.AdaBoostClassifier());
+	clf = clf.fit(dataAttr, dataOutput);
+	m = cross_val_score(clf, dataAttr, dataOutput, cv=5, scoring='accuracy');
+	print("One Vs Rest AdaBoost Tree Classifier validated score: %f" %np.mean(abs(m)));
+
+	clf = multiclass.OneVsRestClassifier(ensemble.RandomForestClassifier(criterion='entropy'));
+	clf = clf.fit(dataAttr, dataOutput);
+	m = cross_val_score(clf, dataAttr, dataOutput, cv=5, scoring='accuracy');
+	print("One Vs Rest Random Forest Classifier validated score: %f" %np.mean(abs(m)));
+
+	clf = multiclass.OneVsRestClassifier(BaggingClassifier(KNeighborsClassifier(),max_samples=1.0, max_features=0.9));
+	clf = clf.fit(dataAttr, dataOutput);
+	m = cross_val_score(clf, dataAttr, dataOutput, cv=5, scoring='accuracy');
+	print("One Vs Rest Bagging Classifier validated score: %f" %np.mean(abs(m)));
+
+	clf = multiclass.OneVsRestClassifier(ExtraTreesClassifier(n_estimators=10, min_samples_split=2));
+	clf = clf.fit(dataAttr, dataOutput);
+	m = cross_val_score(clf, dataAttr, dataOutput, cv=5, scoring='accuracy');
+	print("One Vs Rest Extra Trees Classifier validated score: %f" %np.mean(abs(m)));
+
+
 	for data in datas:
 		#Get the data column where only 1 classifier is present
-		dataOut = data[[OUTPUT_COL]];
+		dataOut = data[[OUTPUT_COL]].values.flatten();
 
 	   	#Create model using decision tree
 		clf = tree.DecisionTreeClassifier(criterion='entropy');
@@ -158,19 +185,29 @@ def main(args):
 		m = cross_val_score(etc, dataAttr, dataOut, cv=5, scoring='accuracy')
 		print("Extra Trees Classifier validated score: %f" %np.mean(abs(m)));
 
+	data = pd.read_table('data/property_prices.csv', delimiter=',');
+	data = data.loc[data[OUTPUT_COL] != 'Unknown'];
+	#Remove useless columns
+	data = data.drop(USELESS_COLS, axis=1)
+	#cleanup dataset for processing
+	data = encodeClassifiers(data, CLASSIFICATION_COLS);
+	# data = data.loc[data[OUTPUT_COL] != 2];
+	# data = data.loc[data[OUTPUT_COL] != 3];
+	# data = data.loc[data[OUTPUT_COL] != 5];
+	# data = data.loc[data[OUTPUT_COL] != 6];
+
+	data = cleanDataset(data);
+	#Split data into features/target
+	dataAttr = data.drop([OUTPUT_COL], axis=1);
+	dataOutput = data[[OUTPUT_COL]];
+	dataAttr = select_features(dataAttr, dataOutput);
+
 	print("--- FINAL -> Predicting all classifiers ---");
 	print("Decision Tree Classifier: %f" %get_accuracy(clfs, dataAttr, dataOutput));
 	print("AdaBoost Classifier: %f" %get_accuracy(adas, dataAttr, dataOutput));
 	print("Random Forest Classifier: %f" %get_accuracy(rfs, dataAttr, dataOutput));
 	print("Bagging Tree Classifier: %f" %get_accuracy(baggings, dataAttr, dataOutput));
 	print("Extra Trees Classifier: %f" %get_accuracy(etcs, dataAttr, dataOutput));
-
-
-
-
-
-
-
 
 	# maxScore = 0;
 	# maxDX = 0;
