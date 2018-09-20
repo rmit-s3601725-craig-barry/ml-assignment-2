@@ -9,7 +9,8 @@ from sklearn import preprocessing
 from sklearn import metrics
 from sklearn import model_selection
 from sklearn import cluster
-from sklearn.feature_selection import SelectKBest, f_classif, chi2
+from sklearn import multiclass
+from sklearn.feature_selection import SelectKBest, f_classif, chi2, f_regression
 from sklearn.model_selection import train_test_split, cross_val_score;
 from sklearn.ensemble import BaggingClassifier
 from sklearn.ensemble import ExtraTreesClassifier
@@ -44,10 +45,24 @@ def cleanDataset(data):
 
 	return data;
 
+def cleanDataset2(data):
+
+	for col in list(data):
+		im = preprocessing.Imputer(strategy='median')
+		im.fit(data[[col]]);
+		data[[col]] = im.transform(data[[col]]);
+
+		# data.loc[data[OUTPUT_COL] == i] = datasub;
+
+
+
+	return data;
+
+
 #Selects features based on the kbest selector score
 def select_features(feats, output):
 
-  selector = SelectKBest(f_classif, k=5)
+  selector = SelectKBest(f_regression, k=5)
   selector.fit(feats, output);
   mask = selector.get_support(indices=True)
   new_features = []
@@ -111,17 +126,43 @@ def main(args):
 	data = encodeClassifiers(data, CLASSIFICATION_COLS);
 	# print data;
 	# data = data.dropna();
-	print(data);
+	# print(data);
 	data = cleanDataset(data);
-	print(data);
+	# print(data);
 	# print data;
 	#Split data into features/target
 	dataAttr = data.drop([OUTPUT_COL], axis=1);
 	dataOutput = data[[OUTPUT_COL]];
-	dataAttr = select_features(dataAttr, dataOutput);
+	# dataAttr = select_features(dataAttr, dataOutput);
 	#Split training and testing sets
 	# trainFeats, testFeats, trainOutputs, testOutputs = \
  #    	train_test_split(dataAttr, dataOut, test_size=0.2);
+
+ 	ovr = multiclass.OneVsOneClassifier(tree.DecisionTreeClassifier(criterion='entropy', max_depth=50));
+ 	ovr = ovr.fit(dataAttr, dataOutput);
+ 	m = cross_val_score(ovr, dataAttr, dataOutput, cv=5, scoring='accuracy')
+	print("One Vs Rest Classifier validated score: %f" %np.mean(abs(m)));
+
+	ovr = multiclass.OneVsRestClassifier(ensemble.AdaBoostClassifier());
+ 	ovr = ovr.fit(dataAttr, dataOutput);
+ 	m = cross_val_score(ovr, dataAttr, dataOutput, cv=5, scoring='accuracy')
+	print("One Vs Rest Classifier validated score: %f" %np.mean(abs(m)));
+
+	ovr = multiclass.OneVsRestClassifier(ensemble.RandomForestClassifier(criterion='entropy'));
+ 	ovr = ovr.fit(dataAttr, dataOutput);
+ 	m = cross_val_score(ovr, dataAttr, dataOutput, cv=5, scoring='accuracy')
+	print("One Vs Rest Classifier validated score: %f" %np.mean(abs(m)));
+
+	ovr = multiclass.OneVsRestClassifier(BaggingClassifier(KNeighborsClassifier(),max_samples=1.0, max_features=0.9));
+ 	ovr = ovr.fit(dataAttr, dataOutput);
+ 	m = cross_val_score(ovr, dataAttr, dataOutput, cv=5, scoring='accuracy')
+	print("One Vs Rest Classifier validated score: %f" %np.mean(abs(m)));
+
+	ovr = multiclass.OneVsRestClassifier(ExtraTreesClassifier(n_estimators=10, min_samples_split=2));
+ 	ovr = ovr.fit(dataAttr, dataOutput);
+ 	m = cross_val_score(ovr, dataAttr, dataOutput, cv=5, scoring='accuracy')
+	print("One Vs Rest Classifier validated score: %f" %np.mean(abs(m)));
+
 
 	for data in datas:
 		#Get the data column where only 1 classifier is present
