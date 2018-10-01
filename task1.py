@@ -16,7 +16,7 @@ from sklearn.ensemble import BaggingClassifier
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.neighbors import KNeighborsClassifier
 
-import graphviz
+# import graphviz
 
 DATA_FILE = 'data/property_prices.csv'
 USELESS_COLS = ['id', 'lattitude', 'longtitude', 'address', 'date'];
@@ -45,18 +45,18 @@ def cleanDataset(data):
 
 	return data;
 
-def cleanDataset2(data):
+# def cleanDataset(data):
 
-	for col in list(data):
-		im = preprocessing.Imputer(strategy='median')
-		im.fit(data[[col]]);
-		data[[col]] = im.transform(data[[col]]);
+# 	for col in list(data):
+# 		im = preprocessing.Imputer(strategy='median')
+# 		im.fit(data[[col]]);
+# 		data[[col]] = im.transform(data[[col]]);
 
-		# data.loc[data[OUTPUT_COL] == i] = datasub;
+# 		# data.loc[data[OUTPUT_COL] == i] = datasub;
 
 
 
-	return data;
+# 	return data;
 
 
 #Selects features based on the kbest selector score
@@ -69,8 +69,8 @@ def select_features(feats, output):
   feature_names = list(feats.columns.values)
 
   for bool, feature in zip(mask, feature_names):
-      if bool:
-          new_features.append(feature)
+	  if bool:
+		  new_features.append(feature)
 
   features_to_remove = list(set(feature_names) - set(new_features));
   feats = feats.drop(features_to_remove, axis=1);
@@ -132,43 +132,43 @@ def main(args):
 	# print data;
 	#Split data into features/target
 	dataAttr = data.drop([OUTPUT_COL], axis=1);
-	dataOutput = data[[OUTPUT_COL]];
+	dataOutput = data[[OUTPUT_COL]].values.flatten();
 	# dataAttr = select_features(dataAttr, dataOutput);
 	#Split training and testing sets
 	# trainFeats, testFeats, trainOutputs, testOutputs = \
  #    	train_test_split(dataAttr, dataOut, test_size=0.2);
 
- 	ovr = multiclass.OneVsOneClassifier(tree.DecisionTreeClassifier(criterion='entropy', max_depth=50));
- 	ovr = ovr.fit(dataAttr, dataOutput);
- 	m = cross_val_score(ovr, dataAttr, dataOutput, cv=5, scoring='accuracy')
+	ovr = multiclass.OneVsOneClassifier(tree.DecisionTreeClassifier(criterion='entropy', max_depth=50));
+	ovr = ovr.fit(dataAttr, dataOutput);
+	m = cross_val_score(ovr, dataAttr, dataOutput, cv=5, scoring='accuracy')
 	print("One Vs Rest Classifier validated score: %f" %np.mean(abs(m)));
 
 	ovr = multiclass.OneVsRestClassifier(ensemble.AdaBoostClassifier());
- 	ovr = ovr.fit(dataAttr, dataOutput);
- 	m = cross_val_score(ovr, dataAttr, dataOutput, cv=5, scoring='accuracy')
+	ovr = ovr.fit(dataAttr, dataOutput);
+	m = cross_val_score(ovr, dataAttr, dataOutput, cv=5, scoring='accuracy')
 	print("One Vs Rest Classifier validated score: %f" %np.mean(abs(m)));
 
 	ovr = multiclass.OneVsRestClassifier(ensemble.RandomForestClassifier(criterion='entropy'));
- 	ovr = ovr.fit(dataAttr, dataOutput);
- 	m = cross_val_score(ovr, dataAttr, dataOutput, cv=5, scoring='accuracy')
+	ovr = ovr.fit(dataAttr, dataOutput);
+	m = cross_val_score(ovr, dataAttr, dataOutput, cv=5, scoring='accuracy')
 	print("One Vs Rest Classifier validated score: %f" %np.mean(abs(m)));
 
 	ovr = multiclass.OneVsRestClassifier(BaggingClassifier(KNeighborsClassifier(),max_samples=1.0, max_features=0.9));
- 	ovr = ovr.fit(dataAttr, dataOutput);
- 	m = cross_val_score(ovr, dataAttr, dataOutput, cv=5, scoring='accuracy')
+	ovr = ovr.fit(dataAttr, dataOutput);
+	m = cross_val_score(ovr, dataAttr, dataOutput, cv=5, scoring='accuracy')
 	print("One Vs Rest Classifier validated score: %f" %np.mean(abs(m)));
 
 	ovr = multiclass.OneVsRestClassifier(ExtraTreesClassifier(n_estimators=10, min_samples_split=2));
- 	ovr = ovr.fit(dataAttr, dataOutput);
- 	m = cross_val_score(ovr, dataAttr, dataOutput, cv=5, scoring='accuracy')
+	ovr = ovr.fit(dataAttr, dataOutput);
+	m = cross_val_score(ovr, dataAttr, dataOutput, cv=5, scoring='accuracy')
 	print("One Vs Rest Classifier validated score: %f" %np.mean(abs(m)));
 
 
 	for data in datas:
 		#Get the data column where only 1 classifier is present
-		dataOut = data[[OUTPUT_COL]];
+		dataOut = data[[OUTPUT_COL]].values.flatten();
 
-	   	#Create model using decision tree
+		#Create model using decision tree
 		clf = tree.DecisionTreeClassifier(criterion='entropy', max_depth=50);
 		clf = clf.fit(dataAttr, dataOut);
 
