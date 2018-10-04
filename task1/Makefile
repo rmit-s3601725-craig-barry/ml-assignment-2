@@ -2,7 +2,7 @@ all:
 	python train.py
 
 build:
-	python build_dataset.py 12;
+	python build_dataset.py;
 	python train.py;
 
 buildn:
