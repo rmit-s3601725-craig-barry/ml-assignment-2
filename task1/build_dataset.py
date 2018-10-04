@@ -23,15 +23,13 @@ from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.neighbors import KNeighborsClassifier
 
 DATA_FILE = '../data/property_prices.csv';
+CLEANED_DATA_FILE = "cleaned_data_file.csv"
 USELESS_COLS = ['id', 'lattitude', 'longtitude', 'address', 'date'];
 CLASSIFICATION_COLS = ['price_bands', 'council_area', 'region_name', 'suburb', 'realestate_agent', 'type', 'method'];
 OUTPUT_COL = 'price_bands'
 
-TRAIN_FILE = 'train_data.csv'
-TEST_FILE  = 'test_data.csv'
-
 N_FEATURES = 13;
-
+N_OUTPUTS = 7;
 
 #Converts all string classes to integer values
 def encodeClassifiers(data, cols):
@@ -51,15 +49,13 @@ def cleanDataset(data):
 			im.fit(data.loc[data[OUTPUT_COL] == i, [col]]);
 			data.loc[data[OUTPUT_COL] == i, [col]] = im.transform(data.loc[data[OUTPUT_COL] == i, [col]]);
 
-		# data.loc[data[OUTPUT_COL] == i] = datasub;
-
 	return data;
 
 
 #Selects features based on the kbest selector score
 def select_features(feats, output, n_features):
 
-  selector = SelectKBest(chi2, k=n_features)
+  selector = SelectKBest(f_classif, k=n_features)
   selector.fit(feats, output);
   mask = selector.get_support(indices=True)
   new_features = []
@@ -74,24 +70,7 @@ def select_features(feats, output, n_features):
 
   return feats;
 
-def split_by_targets(nOutputs):
-	data = [];
-	for i in range(nOutputs):
-		data.append(pd.read_table(DATA_FILE, delimiter=',', index_col = False));
-		data[i] = data[i].loc[data[i][OUTPUT_COL] != 'Unknown'];
-		data[i] = data[i].drop(USELESS_COLS, axis=1)
-		data[i] = encodeClassifiers(data[i], CLASSIFICATION_COLS);
-		data[i] = cleanDataset(data[i]);
-		replaceVals = [x for x in range(1,nOutputs+2) if x != (i+1)];
-		# print(replaceVals);
-		data[i][[OUTPUT_COL]] = data[i][[OUTPUT_COL]].replace(replaceVals, 0);
-		data[i][[OUTPUT_COL]] = data[i][[OUTPUT_COL]].replace([(i+1)], 1);
-
-	return data;
-
 def main(args):
-	nOutputs = 7;
-
 	if(len(sys.argv) > 1):
 		num_features = int(sys.argv[1]);
 	else:
@@ -112,17 +91,8 @@ def main(args):
 
 	dataAttr = select_features(dataAttr, dataOutput, num_features);
 
-	#Split to training & testing sets
-	trainAttr, testAttr, trainOut, testOut = train_test_split(dataAttr, dataOutput, test_size=0.2);
+	data = pd.concat([dataAttr, dataOutput], axis=1, sort=False);
 
-	# trainAttr[OUTPUT_COL] = trainOut;
-	# testAttr[OUTPUT_COL] = testOut;
-
-	trainData = pd.concat([trainAttr, trainOut], axis=1, sort=False);
-	testData  = pd.concat([testAttr,  testOut],  axis=1, sort=False);
-
-	trainData.to_csv(TRAIN_FILE, sep=',', index=False);
-	testData.to_csv(TEST_FILE, sep=',', index=False);
-
+	data.to_csv(CLEANED_DATA_FILE, sep=',', index=False);
 
 main(None);
