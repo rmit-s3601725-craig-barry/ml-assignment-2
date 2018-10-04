@@ -3,7 +3,7 @@ from keras.models import Sequential
 from keras.layers import Dense, Flatten
 
 def main(args):
-	datagen = ImageDataGenerator()
+	datagen = ImageDataGenerator(rescale=1./255)
 
 	train_generator = datagen.flow_from_directory(
 		directory=r"./data/mnist/training/",
@@ -27,7 +27,7 @@ def main(args):
 	model.add(Dense(10, activation='sigmoid'))
 	model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
-	model.fit_generator(train_generator)
+	model.fit_generator(train_generator, steps_per_epoch=60000)
 
 	# for i in x:
 	# 	print(i);
