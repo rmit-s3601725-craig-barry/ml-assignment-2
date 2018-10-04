@@ -17,9 +17,10 @@ from sklearn import cluster
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.multiclass import OneVsOneClassifier, OneVsRestClassifier
 from sklearn.feature_selection import SelectKBest, f_classif, chi2, f_regression
-from sklearn.model_selection import train_test_split, cross_val_score;
+from sklearn.model_selection import train_test_split, cross_val_score, cross_val_predict
 from sklearn.ensemble import BaggingClassifier, ExtraTreesClassifier, AdaBoostClassifier, RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import confusion_matrix
 
 CLEANED_DATA_FILE = "cleaned_data_file.csv"
 USELESS_COLS = ['id', 'address', 'date'];
@@ -44,7 +45,7 @@ def process(clfScores, desc, clf, dataAttr, dataOutput, kFolds):
 		OneVsRestClassifier(AdaBoostClassifier(clf)),
 		BaggingClassifier(clf),
 		OneVsOneClassifier(BaggingClassifier(clf)),
-		OneVsRestClassifier(BaggingClassifier(clf))
+		OneVsRestClassifier(BaggingClassifier(clf)),
 	];
 	descs = [
 		desc,
@@ -63,8 +64,8 @@ def process(clfScores, desc, clf, dataAttr, dataOutput, kFolds):
 		desc = descs[i]
 
 		cvs = cross_val_score(clf, dataAttr, dataOutput, cv=kFolds, scoring='accuracy');
-		accuracy_score = np.mean(abs(cvs));
-		pr("%s: %f" %(desc, accuracy_score));
+		accuracy_score = np.mean(abs(cvs)) * 100.0;
+		pr("%s: %.2f%%" %(desc, accuracy_score));
 		clfScores.append((desc, accuracy_score));
 
 	pr('');
@@ -108,9 +109,9 @@ def main(args):
 	pr('\n-- Top 5 Decision Tree Classifiers --');
 
 	#Sort classifiers by accuracy score descending 
-	sortedClassifierList = sorted(j, key=lambda x: -x[1]);
+	sortedClassifierList = sorted(clfScores, key=lambda x: -x[1]);
 	#Print the top classifiers
 	for i in range(num_top_classifiers):
-		pr("%d. %s: %f" %((i+1), sortedClassifierList[i][0], sortedClassifierList[i][1]));
+		pr("%d. %s: %.2f%%" %((i+1), sortedClassifierList[i][0], sortedClassifierList[i][1] * 100.0));
 
 main(None);
