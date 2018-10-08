@@ -5,10 +5,11 @@ from keras.preprocessing.image import load_img, img_to_array, ImageDataGenerator
 from keras.models import Sequential
 from keras.layers import Dense, Flatten
 from sklearn.model_selection import StratifiedKFold
+from keras.wrappers.scikit_learn import KerasClassifier
 
 TRAIN_SIZE = 60000
 #Number of samples used per gradient increment
-BATCH_SIZE = 74
+BATCH_SIZE = 600
 #Keras docs recommend steps per epoch = number of samples / batch size
 STEPS_TRAIN = TRAIN_SIZE * 0.9 / BATCH_SIZE
 STEPS_VALID = TRAIN_SIZE * 0.1 / BATCH_SIZE
@@ -19,27 +20,50 @@ EPOCHS = 1
 #https://github.com/keras-team/keras/issues/1711#issuecomment-185801662 
 #Comment by KeironO
 def main(args):
-    # K-fold cross validation method
-    from keras.utils import to_categorical
-    n_folds = 5
     train_generator, test_generator = load_data(False)
-    labels = train_generator.class_indices
-    kfold = StratifiedKFold(n_splits=n_folds, shuffle=True)
-    train_y = to_categorical(train_generator, num_classes=10)
-    test_y = to_categorical(test_generator, num_classes=10)
+    #Read the data from the generator so it can be split
+    data = []
+    labels = []
+    i = 0
+    for d, l in train_generator:
+        data.append(d)
+        labels.append(l.argmax(axis=1))
+        i += 1
+        if i == TRAIN_SIZE / BATCH_SIZE:
+            break
+    
+    data = np.array(data)
+    #Reshape array so the number of indices is same as labels
+    data = np.reshape(data, (data.shape[0]*data.shape[1],) + data.shape[2:])
 
-    # for i, (train, test) in kfold.split(train_y, test_y):
-    print("Running Fold", i+1, "/", n_splits)
-    model = None # Clearing the NN.
-    model = create_model()
-    train_and_evaluate(model, train_generator, test_generator)
+    labels = np.array(labels)
+    #Reduce 3d array to a 2d one, otherwise Stratified kfold won't work
+    labels = np.reshape(labels, (labels.shape[0]*labels.shape[1],) + labels.shape[2:])
     
-    
-    # Regular train/test method
+    skf = StratifiedKFold(n_splits=5, shuffle=True)
+
+    for i, (train_indices, val_indices) in enumerate(skf.split(data, labels)):
+        print("Training on fold ", i+1, "/5...")
+
+        #Generate batches from indices
+        xtrain, xval = data[train_indices], data[val_indices]
+        ytrain, yval = labels[train_indices], labels[val_indices]
+
+        #Clear model, and create it
+        model = None
+        model = create_model()
+
+        history = model.fit(
+                x=xtrain,
+                y=ytrain,
+                steps_per_epoch=STEPS_TRAIN,
+                epochs=EPOCHS
+        )
+        accuracy = history.history['acc']
+    #Regular train/test method
     #train_generator, test_generator, valid_generator = load_data()
     #model = create_model()
     #train_and_validate(model, train_generator, test_generator, valid_generator)
-
 
     #Reset seems to be required to align estimated y to actual y
     #test_generator.reset()
@@ -61,7 +85,7 @@ def load_data(validation=True):
     datagen = ImageDataGenerator(
             rescale=1.0/255.0,
             # set aside 10% of training data for validation
-            validation_split=0.1 if validation else 0
+            validation_split=0.2 if validation else 0
     )
 
     #Load training images
@@ -101,7 +125,7 @@ def load_data(validation=True):
 # Creation of the model without data yet
 def create_model():
     #The number of hidden nodes in the hidden layer, this is current optimiser
-    hidden_nodes = 200
+    hidden_nodes = 74
 
     #Number of output classes
     num_classes = 10
