@@ -37,36 +37,25 @@ def pr(msg):
 
 def process(clfScores, desc, clf, dataAttr, dataOutput, kFolds):
 	clfs = [
-		clf, 
-		OneVsOneClassifier(clf), 
-		OneVsRestClassifier(clf),
-		AdaBoostClassifier(clf), 
-		OneVsOneClassifier(AdaBoostClassifier(clf)),
-		OneVsRestClassifier(AdaBoostClassifier(clf)),
-		BaggingClassifier(clf),
-		OneVsOneClassifier(BaggingClassifier(clf)),
-		OneVsRestClassifier(BaggingClassifier(clf)),
+		(desc,clf),
+		("%s (One-vs-One)" %desc,OneVsOneClassifier(clf)),
+		("%s (One-vs-Rest)" %desc,OneVsRestClassifier(clf)),
+		("AdaBoost %s" %desc,AdaBoostClassifier(clf)),
+		("AdaBoost %s (One-vs-One)" %desc,OneVsOneClassifier(AdaBoostClassifier(clf))),
+		("AdaBoost %s (One-vs-Rest)" %desc,OneVsRestClassifier(AdaBoostClassifier(clf))),
+		("Bagging %s" %desc,BaggingClassifier(clf)),
+		("Bagging %s (One-vs-One)" %desc,OneVsOneClassifier(BaggingClassifier(clf))),
+		("Bagging %s (One-vs-Rest)" %desc,OneVsRestClassifier(BaggingClassifier(clf))),
 	];
-	descs = [
-		desc,
-	 	"%s (One-vs-One)" %desc,
-	 	"%s (One-vs-Rest)" %desc,
-	 	"AdaBoost %s" %desc,
-	 	"AdaBoost %s (One-vs-One)" %desc,
-	 	"AdaBoost %s (One-vs-Rest)" %desc,
-	 	"Bagging %s" %desc,
-	 	"Bagging %s (One-vs-One)" %desc,
-	 	"Bagging %s (One-vs-Rest)" %desc,
-	 ];
 
 	for i in range(len(clfs)):
-		clf = clfs[i];
-		desc = descs[i]
+		description = clfs[i][0];
+		clf = clfs[i][1];
 
 		cvs = cross_val_score(clf, dataAttr, dataOutput, cv=kFolds, scoring='accuracy');
 		accuracy_score = np.mean(abs(cvs)) * 100.0;
-		pr("%s: %.2f%%" %(desc, accuracy_score));
-		clfScores.append((desc, accuracy_score));
+		pr("%s: %.2f%%" %(description, accuracy_score));
+		clfScores.append((description, accuracy_score));
 
 	pr('');
 
@@ -106,7 +95,7 @@ def main(args):
 	################################
 	# Top Classifiers
 	################################
-	pr('\n-- Top 5 Decision Tree Classifiers --');
+	pr('\n-- Top %d Decision Tree Classifiers --' %num_top_classifiers);
 
 	#Sort classifiers by accuracy score descending 
 	sortedClassifierList = sorted(clfScores, key=lambda x: -x[1]);

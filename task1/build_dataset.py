@@ -24,7 +24,7 @@ from sklearn.preprocessing import PolynomialFeatures, Imputer, LabelEncoder
 
 DATA_FILE = '../data/property_prices.csv';
 CLEANED_DATA_FILE = "cleaned_data_file.csv"
-USELESS_COLS = ['id', 'lattitude', 'longtitude', 'address', 'date'];
+USELESS_COLS = ['id', 'address', 'date'];
 CLASSIFICATION_COLS = ['price_bands', 'council_area', 'region_name', 'suburb', 'realestate_agent', 'type', 'method'];
 OUTPUT_COL = 'price_bands'
 
@@ -51,32 +51,29 @@ def cleanDataset(data):
 
 	return data;
 
-
 #Selects features based on the kbest selector score
 def select_features(feats, output, n_features):
+	selector = SelectKBest(f_classif, k=n_features)
+	# n_features /= 20.
+	# print(n_features);
+	# selector = VarianceThreshold(threshold=n_features);
 
-  # selector = SelectKBest(mutual_info_classif, k=n_features)
-  selector = VarianceThreshold(threshold=0.80);
-  
-  selector.fit(feats, output);
-  mask = selector.get_support(indices=True)
-  new_features = []
-  feature_names = list(feats.columns.values)
+	selector.fit(feats, output);
+	mask = selector.get_support(indices=True)
+	new_features = []
+	feature_names = list(feats.columns.values)
 
-  for bool, feature in zip(mask, feature_names):
-	  if bool:
-		  new_features.append(feature)
+	for bool, feature in zip(mask, feature_names):
+		if bool:
+			new_features.append(feature)
 
-  features_to_remove = list(set(feature_names) - set(new_features));
-  feats = feats.drop(features_to_remove, axis=1);
+	features_to_remove = list(set(feature_names) - set(new_features));
+	feats = feats.drop(features_to_remove, axis=1);
 
-  return feats;
+	return feats;
 
-def main(args):
-	if(len(sys.argv) > 1):
-		num_features = int(sys.argv[1]);
-	else:
-		num_features = N_FEATURES;
+def build_dataset(n_features):
+	print('--Building Dataset--');
 
 	#Get the first dataset
 	data = pd.read_table(DATA_FILE, delimiter=',', index_col = False);
@@ -91,10 +88,13 @@ def main(args):
 	dataAttr = data.drop([OUTPUT_COL], axis=1);
 	dataOutput = data[[OUTPUT_COL]];
 
-	dataAttr = select_features(dataAttr, dataOutput, num_features);
+	dataAttr = select_features(dataAttr, dataOutput, n_features);
 
 	data = pd.concat([dataAttr, dataOutput], axis=1, sort=False);
 
 	data.to_csv(CLEANED_DATA_FILE, sep=',', index=False);
+
+def main(args):
+	build_dataset(12);
 
 main(None);
